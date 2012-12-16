@@ -3403,6 +3403,10 @@ void OSD::_share_map_outgoing(int peer, Connection *con, OSDMapRef map)
 bool OSD::heartbeat_dispatch(Message *m)
 {
   dout(30) << "heartbeat_dispatch " << m << dendl;
+  if (is_stopping()) {
+    m->put();
+    return true;
+  }
 
   switch (m->get_type()) {
     
@@ -3564,6 +3568,9 @@ void OSD::do_waiters()
 
 void OSD::dispatch_op(OpRequestRef op)
 {
+  if (is_stopping())
+    return;
+
   switch (op->request->get_type()) {
 
   case MSG_OSD_PG_CREATE:
@@ -3625,10 +3632,15 @@ void OSD::_dispatch(Message *m)
 {
   assert(osd_lock.is_locked());
   dout(20) << "_dispatch " << m << " " << *m << dendl;
-  Session *session = NULL;
 
   logger->set(l_osd_buf, buffer::get_total_alloc());
 
+  if (is_stopping()) {
+    m->put();
+    return;
+  }
+
+  Session *session = NULL;
   switch (m->get_type()) {
 
     // -- don't need lock -- 
