@@ -823,8 +823,7 @@ void OSD::handle_signal(int signum)
 {
   assert(signum == SIGINT || signum == SIGTERM);
   derr << "*** Got signal " << sys_siglist[signum] << " ***" << dendl;
-  //suicide(128 + signum);
-  suicide(0);
+  shutdown();
 }
 
 int OSD::pre_init()
@@ -1120,32 +1119,6 @@ void OSD::create_logger()
 
   logger = osd_plb.create_perf_counters();
   g_ceph_context->get_perfcounters_collection()->add(logger);
-}
-
-void OSD::suicide(int exitcode)
-{
-  if (g_conf->filestore_blackhole) {
-    derr << " filestore_blackhole=true, doing abbreviated shutdown" << dendl;
-    _exit(exitcode);
-  }
-
-  // turn off lockdep; the surviving threads tend to fight with exit() below
-  g_lockdep = 0;
-
-  derr << " pausing thread pools" << dendl;
-  op_tp.pause();
-  disk_tp.pause();
-  recovery_tp.pause();
-  command_tp.pause();
-
-  derr << " flushing io" << dendl;
-  store->sync_and_flush();
-
-  derr << " removing pid file" << dendl;
-  pidfile_remove();
-
-  derr << " exit" << dendl;
-  exit(exitcode);
 }
 
 int OSD::shutdown()

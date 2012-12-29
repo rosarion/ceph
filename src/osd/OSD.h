@@ -1443,7 +1443,6 @@ public:
   int pre_init();
   int init();
 
-  void suicide(int exitcode);
   int shutdown();
 
   void handle_signal(int signum);
