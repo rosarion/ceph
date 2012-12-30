@@ -823,6 +823,7 @@ void OSD::handle_signal(int signum)
 {
   assert(signum == SIGINT || signum == SIGTERM);
   derr << "*** Got signal " << sys_siglist[signum] << " ***" << dendl;
+  osd_lock.Lock();
   shutdown();
 }
 
