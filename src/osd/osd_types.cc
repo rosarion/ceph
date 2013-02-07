@@ -1673,7 +1673,7 @@ void pg_query_t::generate_test_instances(list<pg_query_t*>& o)
 string pg_log_entry_t::get_key_name() const
 {
   char key[40];
-  snprintf(key, sizeof(key), "%010ld.%020lld", version.epoch, version.version);
+  snprintf(key, sizeof(key), "%010u.%020lu", version.epoch, version.version);
   return string(key);
 }
 
