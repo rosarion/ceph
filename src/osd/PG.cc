@@ -2388,7 +2388,6 @@ void PG::write_log(ObjectStore::Transaction& t)
   }
   dout(10) << "write_log " << keys.size() << " keys" << dendl;
 
-  bufferlist bl;
   ::encode(ondisklog.divergent_priors, keys["divergent_priors"]);
 
   t.omap_setkeys(coll_t::META_COLL, log_oid, keys);
@@ -2487,10 +2486,10 @@ void PG::read_log(ObjectStore *store)
   }
 
   log.tail = info.log_tail;
-  for (ObjectMap::ObjectMapIterator p = osd->store->get_omap_iterator(coll_t::META_COLL, log_oid);
-       p && p->valid();
-       p->next()) {
-    bufferlist::iterator bp = p->value().begin();
+  ObjectMap::ObjectMapIterator p = osd->store->get_omap_iterator(coll_t::META_COLL, log_oid);
+  if (p) for (p->seek_to_first(); p->valid() ; p->next()) {
+    bufferlist bl = p->value();//Copy bufferlist before creating iterator
+    bufferlist::iterator bp = bl.begin();
     if (p->key() == "divergent_priors") {
       ::decode(ondisklog.divergent_priors, bp);
       dout(20) << "read_log " << ondisklog.divergent_priors.size() << " divergent_priors" << dendl;
