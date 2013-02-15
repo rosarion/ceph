@@ -63,3 +63,5 @@ Makefile
 /testmsgr
 /test_*
 /unittest_*
+/test/cls_lua/test_script.h
+/txt2str
