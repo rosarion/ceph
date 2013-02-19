@@ -1,9 +1,12 @@
 #!/bin/bash -e
 
-BASE=/tmp/cephtest
-TLIB=binary/usr/local/lib
-export LD_LIBRARY_PATH=$BASE/$TLIB 
-CEPH_CONF_FILE=$BASE/ceph.conf
+#BASE=/tmp/cephtest
+#TLIB=binary/usr/local/lib
+#export LD_LIBRARY_PATH=$BASE/$TLIB 
+#CEPH_CONF_FILE=$BASE/ceph.conf
+
+# bail if $TESTDIR is not set as this test will fail in that scenario
+[ -z $TESTDIR] && { echo "\$TESTDIR needs to be set, but is not. Exiting."; exit 1; }
 
 POOL_SIZES=`seq 1 8`
 POOL_BASE=hadoop
@@ -18,7 +21,7 @@ cat << EOF > $outfile
 <configuration>
 <property>
   <name>ceph.conf.file</name>
-  <value>$CEPH_CONF_FILE</value>
+  <value>$CEPH_CONF</value>
 </property>
 <property>
   <name>ceph.data.pools</name>
@@ -48,13 +51,13 @@ cust_repl_conf=`mktemp`
 echo generating custom replication hadoop config $cust_repl_conf
 gen_hadoop_conf $cust_repl_conf $POOL_NAMES
 
-pushd $BASE/hadoop
+pushd $TESTDIR/hadoop
 
 echo running default replication hadoop tests
-ant -Dextra.library.path=$BASE/$TLIB -Dhadoop.conf.file=$def_repl_conf -Dtestcase=TestCephDefaultReplication test
+ant -Dextra.library.path=$LD_LIBRARY_PATH -Dhadoop.conf.file=$def_repl_conf -Dtestcase=TestCephDefaultReplication test
 
 echo running custom replication hadoop tests
-ant -Dextra.library.path=$BASE/$TLIB -Dhadoop.conf.file=$def_repl_conf -Dtestcase=TestCephCustomReplication test
+ant -Dextra.library.path=$LD_LIBRARY_PATH -Dhadoop.conf.file=$def_repl_conf -Dtestcase=TestCephCustomReplication test
 
 popd
 
