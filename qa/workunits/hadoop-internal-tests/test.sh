@@ -1,10 +1,5 @@
 #!/bin/bash -e
 
-#BASE=/tmp/cephtest
-#TLIB=binary/usr/local/lib
-#export LD_LIBRARY_PATH=$BASE/$TLIB 
-#CEPH_CONF_FILE=$BASE/ceph.conf
-
 # bail if $TESTDIR is not set as this test will fail in that scenario
 [ -z $TESTDIR] && { echo "\$TESTDIR needs to be set, but is not. Exiting."; exit 1; }
 
@@ -35,12 +30,15 @@ echo creating hadoop test pools
 for size in $POOL_SIZES; do
   name=${POOL_BASE}$size
   echo creating pool $name
-  ./ceph osd pool create $name 100 100
-  ./ceph osd pool set $name size $size
+  #./ceph osd pool create $name 100 100
+  #./ceph osd pool set $name size $size
+  ceph osd pool create $name 100 100
+  ceph osd pool set $name size $size
 
   echo making pool $name a data pool
   poolid=`./ceph osd dump | sed -n "s/^pool \([0-9]*\) '$name'.*/\1/p"`
-  ./ceph mds add_data_pool $poolid
+  ceph mds add_data_pool $poolid
+  #./ceph mds add_data_pool $poolid
 done
 
 def_repl_conf=`mktemp`
