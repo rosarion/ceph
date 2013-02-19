@@ -55,7 +55,7 @@ echo running default replication hadoop tests
 ant -Dextra.library.path=$LD_LIBRARY_PATH -Dhadoop.conf.file=$def_repl_conf -Dtestcase=TestCephDefaultReplication test
 
 echo running custom replication hadoop tests
-ant -Dextra.library.path=$LD_LIBRARY_PATH -Dhadoop.conf.file=$def_repl_conf -Dtestcase=TestCephCustomReplication test
+ant -Dextra.library.path=$LD_LIBRARY_PATH -Dhadoop.conf.file=$cust_repl_conf -Dtestcase=TestCephCustomReplication test
 
 popd
 
