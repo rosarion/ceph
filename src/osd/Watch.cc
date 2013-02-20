@@ -205,7 +205,7 @@ static ostream& _prefix(
 class HandleWatchTimeout : public CancelableContext {
   WatchRef watch;
 public:
-  bool canceled;
+  bool canceled; // protected by watch->pg->lock
   HandleWatchTimeout(WatchRef watch) : watch(watch), canceled(false) {}
   void cancel() {
     canceled = true;
