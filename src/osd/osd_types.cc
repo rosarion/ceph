@@ -2447,6 +2447,13 @@ ps_t object_info_t::legacy_object_locator_to_ps(const object_t &oid,
 
 void object_info_t::encode(bufferlist& bl) const
 {
+  map<entity_name_t, watch_info_t> old_watchers;
+  for (map<pair<uint64_t, entity_name_t>, watch_info_t>::const_iterator i =
+	 watchers.begin();
+       i != watchers.end();
+       ++i) {
+    old_watchers.insert(make_pair(i->first.second, i->second));
+  }
   ENCODE_START(11, 8, bl);
   ::encode(soid, bl);
   ::encode(oloc, bl);
@@ -2463,15 +2470,17 @@ void object_info_t::encode(bufferlist& bl) const
   ::encode(truncate_seq, bl);
   ::encode(truncate_size, bl);
   ::encode(lost, bl);
-  ::encode(watchers, bl);
+  ::encode(old_watchers, bl);
   ::encode(user_version, bl);
   ::encode(uses_tmap, bl);
+  ::encode(watchers, bl);
   ENCODE_FINISH(bl);
 }
 
 void object_info_t::decode(bufferlist::iterator& bl)
 {
   DECODE_START_LEGACY_COMPAT_LEN(11, 8, 8, bl);
+  map<entity_name_t, watch_info_t> old_watchers;
   if (struct_v >= 2 && struct_v <= 5) {
     sobject_t obj;
     ::decode(obj, bl);
@@ -2505,19 +2514,7 @@ void object_info_t::decode(bufferlist::iterator& bl)
   else
     lost = false;
   if (struct_v >= 4) {
-    if (struct_v >= 11) {
-      ::decode(watchers, bl);
-    } else {
-      map<entity_name_t, watch_info_t> old_watchers;
-      ::decode(old_watchers, bl);
-      for (map<entity_name_t, watch_info_t>::iterator i = old_watchers.begin();
-	   i != old_watchers.end();
-	   ++i) {
-	watchers.insert(
-	  make_pair(
-	    make_pair(i->second.cookie, i->first), i->second));
-      }
-    }
+    ::decode(old_watchers, bl);
     ::decode(user_version, bl);
   }
   if (struct_v >= 9)
@@ -2526,6 +2523,17 @@ void object_info_t::decode(bufferlist::iterator& bl)
     uses_tmap = true;
   if (struct_v < 10)
     soid.pool = oloc.pool;
+  if (struct_v >= 11) {
+    ::decode(watchers, bl);
+  } else {
+    for (map<entity_name_t, watch_info_t>::iterator i = old_watchers.begin();
+	 i != old_watchers.end();
+	 ++i) {
+      watchers.insert(
+	make_pair(
+	  make_pair(i->second.cookie, i->first), i->second));
+    }
+  }
   DECODE_FINISH(bl);
 }
 
