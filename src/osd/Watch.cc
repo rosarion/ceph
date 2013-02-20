@@ -45,7 +45,7 @@ Notify::Notify(
     notify_id(notify_id),
     version(version),
     osd(osd),
-    cb(0),
+    cb(NULL),
     lock("Notify::lock") {}
 
 NotifyRef Notify::makeNotifyRef(
@@ -91,7 +91,7 @@ void Notify::do_timeout()
 {
   assert(lock.is_locked_by_me());
   dout(10) << "timeout" << dendl;
-  cb = 0;
+  cb = NULL;
   if (is_discarded()) {
     lock.Unlock();
     return;
@@ -138,7 +138,7 @@ void Notify::unregister_cb()
   {
     osd->watch_lock.Lock();
     osd->watch_timer.cancel_event(cb);
-    cb = 0;
+    cb = NULL;
     osd->watch_lock.Unlock();
   }
 }
@@ -217,7 +217,7 @@ public:
     OSDService *osd(watch->osd);
     osd->watch_lock.Unlock();
     pg->lock();
-    watch->cb = 0;
+    watch->cb = NULL;
     if (!watch->is_discarded() && !canceled)
       watch->pg->handle_watch_timeout(watch);
     delete this; // ~Watch requires pg lock!
@@ -237,7 +237,7 @@ public:
   void finish(int) {
     dout(10) << "HandleWatchTimeoutDelayed" << dendl;
     assert(watch->pg->is_locked());
-    watch->cb = 0;
+    watch->cb = NULL;
     if (!watch->is_discarded() && !canceled)
       watch->pg->handle_watch_timeout(watch);
   }
@@ -262,7 +262,7 @@ Watch::Watch(
   uint32_t timeout,
   uint64_t cookie,
   entity_name_t entity)
-  : cb(0),
+  : cb(NULL),
     osd(osd),
     pg(pg),
     obc(obc),
@@ -318,7 +318,7 @@ void Watch::unregister_cb()
     Mutex::Locker l(osd->watch_lock);
     osd->watch_timer.cancel_event(cb); // harmless if not registered with timer
   }
-  cb = 0;
+  cb = NULL;
 }
 
 void Watch::connect(ConnectionRef con)
@@ -369,7 +369,7 @@ void Watch::discard_state()
     conn = ConnectionRef();
   }
   pg->put_object_context(obc);
-  obc = 0;
+  obc = NULL;
 }
 
 bool Watch::is_discarded()
