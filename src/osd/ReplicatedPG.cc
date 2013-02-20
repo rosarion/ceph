@@ -4057,7 +4057,6 @@ void ReplicatedPG::handle_watch_timeout(WatchRef watch)
   issue_repop(repop, repop->ctx->mtime, old_last_update, old_exists,
 	      old_size, old_version);
   eval_repop(repop);
-  return;
 }
 
 ObjectContext *ReplicatedPG::_lookup_object_context(const hobject_t& oid)
