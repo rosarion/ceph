@@ -3254,14 +3254,14 @@ void ReplicatedPG::do_osd_op_effects(OpContext *ctx)
     (OSD::Session *)conn->get_priv());
   entity_name_t entity = ctx->reqid.name;
 
-  dout(15) << "do_osd_op_effects on session " << session->get() << dendl;
+  dout(15) << "do_osd_op_effects on session " << session.get() << dendl;
 
   for (list<watch_info_t>::iterator i = ctx->watch_connects.begin();
        i != ctx->watch_connects.end();
        ++i) {
     pair<uint64_t, entity_name_t> watcher(i->cookie, entity);
     dout(15) << "do_osd_op_effects applying watch connect on session "
-	     << session->get() << " watcher " << watcher << dendl;
+	     << session.get() << " watcher " << watcher << dendl;
     WatchRef watch;
     if (ctx->obc->watchers.count(watcher)) {
       dout(15) << "do_osd_op_effects found existing watch watcher " << watcher
@@ -3286,7 +3286,7 @@ void ReplicatedPG::do_osd_op_effects(OpContext *ctx)
        ++i) {
     pair<uint64_t, entity_name_t> watcher(i->cookie, entity);
     dout(15) << "do_osd_op_effects applying watch disconnect on session "
-	     << session->get() << " and watcher " << watcher << dendl;
+	     << session.get() << " and watcher " << watcher << dendl;
     if (ctx->obc->watchers.count(watcher)) {
       WatchRef watch = ctx->obc->watchers[watcher];
       dout(10) << "do_osd_op_effects applying disconnect found watcher "
