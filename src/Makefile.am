@@ -1179,6 +1179,7 @@ rados_includedir = $(includedir)/rados
 rados_include_DATA = \
 	$(srcdir)/include/rados/librados.h \
 	$(srcdir)/include/rados/rados_types.h \
+	$(srcdir)/include/rados/rados_types.hpp \
 	$(srcdir)/include/rados/librados.hpp \
 	$(srcdir)/include/buffer.h \
 	$(srcdir)/include/page.h \
@@ -1643,6 +1644,7 @@ noinst_HEADERS = \
         include/xlist.h\
 	include/rados/librados.h\
 	include/rados/rados_types.h\
+	include/rados/rados_types.hpp\
 	include/rados/librados.hpp\
 	include/rados/librgw.h\
 	include/rados/page.h\
