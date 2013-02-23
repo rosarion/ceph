@@ -850,6 +850,7 @@ public:
     map<hobject_t, pair<ScrubMap::object, int> > authoritative;
 
     // classic scrub
+    bool classic;
     bool finalizing;
 
     // chunky scrub
@@ -921,6 +922,7 @@ public:
 
     // clear all state
     void reset() {
+      classic = false;
       finalizing = false;
       block_writes = false;
       active = false;
