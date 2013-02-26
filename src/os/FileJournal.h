@@ -108,6 +108,7 @@ public:
     __u32 alignment;
     int64_t max_size;   // max size of journal ring buffer
     int64_t start;      // offset of first entry
+    uint64_t committed_up_to; // committed up to
 
     header_t() : flags(0), block_size(0), alignment(0), max_size(0), start(0) {}
 
@@ -120,7 +121,7 @@ public:
     }
 
     void encode(bufferlist& bl) const {
-      __u32 v = 2;
+      __u32 v = 3;
       ::encode(v, bl);
       bufferlist em;
       {
@@ -130,6 +131,7 @@ public:
 	::encode(alignment, em);
 	::encode(max_size, em);
 	::encode(start, em);
+	::encode(committed_up_to, em);
       }
       ::encode(em, bl);
     }
@@ -159,6 +161,10 @@ public:
       ::decode(alignment, t);
       ::decode(max_size, t);
       ::decode(start, t);
+      if (v > 2)
+	::decode(committed_up_to, em);
+      else
+	committed_up_to = 0;
     }
   } header;
 
