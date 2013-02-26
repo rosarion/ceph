@@ -1613,7 +1613,7 @@ bool FileJournal::read_entry(bufferlist& bl, uint64_t& seq)
   h = (entry_header_t *)hbl.c_str();
 
   if (!h->check_magic(read_pos, header.get_fsid64())) {
-    if (seq <= header.committed_up_to) {
+    if (header.committed_up_to && seq <= header.committed_up_to) {
       derr << "ERROR: header claims we are committed up through "
 	   << header.committed_up_to << " however, we have failed to read "
 	   << "entry " << seq
