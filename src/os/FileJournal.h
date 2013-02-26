@@ -162,7 +162,7 @@ public:
       ::decode(max_size, t);
       ::decode(start, t);
       if (v > 2)
-	::decode(committed_up_to, em);
+	::decode(committed_up_to, t);
       else
 	committed_up_to = 0;
     }
