@@ -965,7 +965,7 @@ void FileJournal::do_write(bufferlist& bl)
     return;
 
   buffer::ptr hbp;
-  if ((rand() % 20 == 0) || must_write_header) {
+  if (must_write_header) {
     must_write_header = false;
     hbp = prepare_header();
   }
