@@ -516,6 +516,9 @@ protected:
   map<hobject_t, ObjectContext*> object_contexts;
   map<object_t, SnapSetContext*> snapset_contexts;
 
+  // debug order that client ops are applied
+  map<hobject_t, map<client_t, tid_t> > debug_op_order;
+
   void populate_obc_watchers(ObjectContext *obc);
   void register_unconnected_watcher(void *obc,
 				    entity_name_t entity,
