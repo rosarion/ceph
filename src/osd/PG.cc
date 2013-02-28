@@ -1676,6 +1676,7 @@ void PG::do_request(OpRequestRef op)
     return;
   }
   if (must_delay_request(op)) {
+    dout(20) << " waiting for map on " << op << dendl;
     waiting_for_map.push_back(op);
     return;
   }
@@ -1683,6 +1684,7 @@ void PG::do_request(OpRequestRef op)
     return;
   }
   if (!flushed) {
+    dout(20) << " !flushed, waiting for active on " << op << dendl;
     waiting_for_active.push_back(op);
     return;
   }
@@ -1690,6 +1692,7 @@ void PG::do_request(OpRequestRef op)
   switch (op->request->get_type()) {
   case CEPH_MSG_OSD_OP:
     if (is_replay() || !is_active()) {
+      dout(20) << " replay, waiting for active on " << op << dendl;
       waiting_for_active.push_back(op);
       return;
     }
@@ -4776,6 +4779,7 @@ bool PG::can_discard_op(OpRequestRef op)
 {
   MOSDOp *m = (MOSDOp*)op->request;
   if (OSD::op_is_discardable(m)) {
+    dout(20) << " discard " << *m << dendl;
     return true;
   } else if (op->may_write() &&
 	     (!is_primary() ||
