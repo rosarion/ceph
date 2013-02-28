@@ -34,7 +34,6 @@ using std::vector;
 // list binds to list() here, so std::list is explicitly used below
 
 using ceph::bufferlist;
-using librados::snap_t;
 using librados::IoCtx;
 using librados::Rados;
 

@@ -88,7 +88,7 @@ namespace librbd {
   bool LibrbdWriteback::may_copy_on_write(const object_t& oid, uint64_t read_off, uint64_t read_len, snapid_t snapid)
   {
     m_ictx->snap_lock.get_read();
-    librados::snap_t snap_id = m_ictx->snap_id;
+    snap_t snap_id = m_ictx->snap_id;
     m_ictx->parent_lock.get_read();
     uint64_t overlap = 0;
     m_ictx->get_parent_overlap(snap_id, &overlap);
@@ -117,7 +117,7 @@ namespace librbd {
 			       Context *oncommit)
   {
     m_ictx->snap_lock.get_read();
-    librados::snap_t snap_id = m_ictx->snap_id;
+    snap_t snap_id = m_ictx->snap_id;
     m_ictx->parent_lock.get_read();
     uint64_t overlap = 0;
     m_ictx->get_parent_overlap(snap_id, &overlap);

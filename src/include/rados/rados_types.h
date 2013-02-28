@@ -13,4 +13,5 @@ struct obj_watch_t {
   uint32_t timeout_seconds;
 }; 
 
+typedef uint64_t snap_t;
 #endif

@@ -25,7 +25,7 @@ namespace librbd {
     m_hide_enoent(false) {}
   AioRequest::AioRequest(ImageCtx *ictx, const std::string &oid,
 			 uint64_t objectno, uint64_t off, uint64_t len,
-			 librados::snap_t snap_id,
+			 snap_t snap_id,
 			 Context *completion,
 			 bool hide_enoent) {
     m_ictx = ictx;
@@ -119,7 +119,7 @@ namespace librbd {
 			       uint64_t object_no, uint64_t object_off, uint64_t len,
 			       vector<pair<uint64_t,uint64_t> >& objectx,
 			       uint64_t object_overlap,
-			       const ::SnapContext &snapc, librados::snap_t snap_id,
+			       const ::SnapContext &snapc, snap_t snap_id,
 			       Context *completion,
 			       bool hide_enoent)
     : AioRequest(ictx, oid, object_no, object_off, len, snap_id, completion, hide_enoent),
@@ -129,7 +129,7 @@ namespace librbd {
     m_parent_overlap = object_overlap;
 
     // TODO: find a way to make this less stupid
-    std::vector<librados::snap_t> snaps;
+    std::vector<snap_t> snaps;
     for (std::vector<snapid_t>::const_iterator it = snapc.snaps.begin();
 	 it != snapc.snaps.end(); ++it) {
       snaps.push_back(it->val);

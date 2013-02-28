@@ -23,7 +23,6 @@ using std::string;
 using std::vector;
 
 using ceph::bufferlist;
-using librados::snap_t;
 using librados::IoCtx;
 
 namespace librbd {

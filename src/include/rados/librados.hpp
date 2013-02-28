@@ -26,7 +26,6 @@ namespace librados
   class RadosClient;
 
   typedef void *list_ctx_t;
-  typedef uint64_t snap_t;
   typedef uint64_t auid_t;
   typedef void *config_t;
 
