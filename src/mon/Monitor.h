@@ -141,6 +141,7 @@ private:
 public:
   MonitorDBStore *store;
   static const string MONITOR_NAME;
+  static const string MONITOR_STORE_PREFIX;
 
   // -- monitor state --
 private:
@@ -1246,6 +1247,12 @@ public:
    */
   void get_health(string& status, bufferlist *detailbl, Formatter *f);
   void get_status(stringstream &ss, Formatter *f);
+
+  int _store_get(string key, bufferlist &bl);
+  void _store_put(string key, bufferlist &bl, Context *cb = NULL);
+  void _store_delete(string key, Context *cb = NULL);
+  void _store_list(stringstream &ss);
+  bool _store_exists(string key);
 
   void reply_command(MMonCommand *m, int rc, const string &rs, version_t version);
   void reply_command(MMonCommand *m, int rc, const string &rs, bufferlist& rdata, version_t version);

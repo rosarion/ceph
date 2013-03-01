@@ -84,6 +84,7 @@ static ostream& _prefix(std::ostream *_dout, const Monitor *mon) {
 }
 
 const string Monitor::MONITOR_NAME = "monitor";
+const string Monitor::MONITOR_STORE_PREFIX = "monitor_store";
 
 long parse_pos_long(const char *s, ostream *pss)
 {
@@ -2335,6 +2336,56 @@ void Monitor::get_status(stringstream &ss, Formatter *f)
   }
 }
 
+int Monitor::_store_get(string key, bufferlist &bl)
+{
+  if (!_store_exists(key))
+    return -ENOENT;
+
+  return store->get(MONITOR_STORE_PREFIX, key, bl);
+}
+
+void Monitor::_store_put(string key, bufferlist &bl, Context *cb)
+{
+  bufferlist proposal_bl;
+  MonitorDBStore::Transaction t;
+  t.put(MONITOR_STORE_PREFIX, key, bl);
+  t.encode(proposal_bl);
+
+  paxos->propose_new_value(proposal_bl, cb);
+}
+
+void Monitor::_store_delete(string key, Context *cb)
+{
+  bufferlist proposal_bl;
+  MonitorDBStore::Transaction t;
+  t.erase(MONITOR_STORE_PREFIX, key);
+  t.encode(proposal_bl);
+  paxos->propose_new_value(proposal_bl, cb);
+}
+
+bool Monitor::_store_exists(string key)
+{
+  return store->exists(MONITOR_STORE_PREFIX, key);
+}
+
+void Monitor::_store_list(stringstream &ss)
+{
+  KeyValueDB::Iterator iter =
+    store->get_iterator(MONITOR_STORE_PREFIX);
+
+  uint32_t n = 0;
+  while (iter->valid()) {
+    string key(iter->key());
+    ss << "-  " << key << '\n';
+    n++;
+    iter->next();
+  }
+  if (!n)
+    ss << "store is empty";
+  else
+    ss << n << " keys available in the store";
+}
+
 void Monitor::handle_command(MMonCommand *m)
 {
   if (m->fsid != monmap->fsid) {
@@ -2420,6 +2471,116 @@ void Monitor::handle_command(MMonCommand *m)
     stop_cluster();
     reply_command(m, 0, "initiating cluster shutdown", 0);
     return;
+  }
+
+  if (m->cmd[0] == "store") {
+    if (!access_all) {
+      r = -EACCES;
+      rs = "access denied";
+      goto out;
+    }
+    if (m->cmd.size() < 2) {
+      r = -EINVAL;
+      rs = "usage: store <get|put|list|exists|delete> [<key>]";
+      goto out;
+    }
+    stringstream ss;
+
+    if (m->cmd[1] == "get") {
+      if (m->cmd.size() != 3) {
+        r = -EINVAL;
+        rs = "usage: store get <key> -o <file>";
+        goto out;
+      }
+      bufferlist rdata;
+      int err = _store_get(m->cmd[2], rdata);
+      if (err < 0) {
+        assert(!rdata.length());
+        r = err;
+        ss << "error obtaining '" << m->cmd[2] << "': "
+               << cpp_strerror(err);
+        rs = ss.str();
+        goto out;
+      }
+      ss << "obtained '" << m->cmd[2] << "'";
+      reply_command(m, 0, ss.str(), rdata, 0);
+      return;
+    } else if (m->cmd[1] == "put") {
+      if (!is_leader()) {
+        forward_request_leader(m);
+        return;
+      }
+
+      bufferlist data;
+      if (m->cmd.size() < 3 || m->cmd.size() > 4) {
+        r = -EINVAL;
+        rs = "usage: store put <key> [-i <file>|<value]";
+        goto out;
+      } else if (m->cmd.size() == 4) {
+        // they specified a value in the command instead of a file
+        data.append(m->cmd[3]);
+      } else if (m->cmd.size() == 3) {
+        if (!m->get_data_len()) {
+          r = -EINVAL;
+          rs = "error: have you specified a file? is it empty?";
+          goto out;
+        }
+        // they specified '-i <file>'
+        data = m->get_data();
+      } else {
+        // they misbehaved, those little buggers.
+        r = -EINVAL;
+        rs = "usage: store put <key> [-i <file>|<value]";
+        goto out;
+      }
+      // we'll reply to the message once the proposal has been taken
+      // cared of.
+      _store_put(m->cmd[2], data,
+          new C_Command(this, m, 0, "value stored", 0));
+      return;
+    } else if (m->cmd[1] == "delete") {
+      if (!is_leader()) {
+        forward_request_leader(m);
+        return;
+      }
+
+      if (m->cmd.size() != 3) {
+        r = -EINVAL;
+        rs = "usage: store delete <key>";
+        goto out;
+      }
+      if (!_store_exists(m->cmd[2])) {
+        r = -ENOENT;
+        rs = "no such key";
+        goto out;
+      }
+      _store_delete(m->cmd[2], new C_Command(this, m, 0, "key deleted", 0));
+      return;
+    } else if (m->cmd[1] == "exists") {
+      if (m->cmd.size() != 3) {
+        r = -EINVAL;
+        rs = "usage: store exists <key>";
+        goto out;
+      }
+      bool exists = _store_exists(m->cmd[2]);
+      ss << "key '" << m->cmd[2] << "'";
+      if (exists)
+        ss << " exists";
+      else
+        ss << " doesn't exist";
+      reply_command(m, 0, ss.str(), 0);
+      return;
+    } else if (m->cmd[1] == "list") {
+      if (m->cmd.size() > 2) {
+        r = -EINVAL;
+        rs = "usage: store list";
+        goto out;
+      }
+      _store_list(ss);
+      r = 0;
+      rs = ss.str();
+      goto out;
+    }
   }
 
   if (m->cmd[0] == "injectargs") {
