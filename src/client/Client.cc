@@ -1225,7 +1225,7 @@ int Client::make_request(MetaRequest *request,
 	  request->resend_mds = mdsmap->get_random_up_mds();
 	  continue;
 	}
-      }	
+      }
       
       if (waiting_for_session.count(mds) == 0) {
 	ldout(cct, 10) << "opening session to mds." << mds << dendl;
@@ -1291,15 +1291,21 @@ int Client::make_request(MetaRequest *request,
 
     if (request->target) {
       *ptarget = request->target;
+      ldout(cct, 20) << "make_request target is " << *request->target << dendl;
     } else {
       if (got_created_ino && (p = inode_map.find(vinodeno_t(created_ino, CEPH_NOSNAP))) != inode_map.end()) {
 	(*ptarget) = p->second;
+	ldout(cct, 20) << "make_request created, target is " << **ptarget << dendl;
       } else {
 	// we got a traceless reply, and need to look up what we just
 	// created.  for now, do this by name.  someday, do this by the
 	// ino... which we know!  FIXME.
 	Inode *target = 0;  // ptarget may be NULL
 	if (request->dentry) {
+	  // rename is special
+	  if (request->old_dentry) {
+	    unlink(request->old_dentry, false);
+	  }
 	  ldout(cct, 10) << "make_request got traceless reply, looking up #"
 			 << request->dentry->dir->parent_inode->ino << "/" << request->dentry->name
 			 << " got_ino " << got_created_ino
@@ -7271,14 +7277,15 @@ int Client::_rename(Inode *fromdir, const char *fromname, Inode *todir, const ch
 
   req->inode = todir;
 
-  res = make_request(req, uid, gid);
+  Inode *target;
+  res = make_request(req, uid, gid, &target);
 
   ldout(cct, 10) << "rename result is " << res << dendl;
 
   // renamed item from our cache
 
   trim_cache();
-  ldout(cct, 3) << "rename(" << from << ", " << to << ") = " << res << dendl;
+  ldout(cct, 3) << "_rename(" << from << ", " << to << ") = " << res << dendl;
   return res;
 
  fail:
