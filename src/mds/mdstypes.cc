@@ -239,7 +239,7 @@ ostream& operator<<(ostream& out, const client_writeable_range_t& r)
  */
 void inode_t::encode(bufferlist &bl) const
 {
-  ENCODE_START(6, 6, bl);
+  ENCODE_START(7, 6, bl);
 
   ::encode(ino, bl);
   ::encode(rdev, bl);
@@ -254,6 +254,7 @@ void inode_t::encode(bufferlist &bl) const
 
   ::encode(dir_layout, bl);
   ::encode(layout, bl);
+  ::encode(old_layouts, bl);
   ::encode(size, bl);
   ::encode(truncate_seq, bl);
   ::encode(truncate_size, bl);
@@ -278,7 +279,7 @@ void inode_t::encode(bufferlist &bl) const
 
 void inode_t::decode(bufferlist::iterator &p)
 {
-  DECODE_START_LEGACY_COMPAT_LEN(6, 6, 6, p);
+  DECODE_START_LEGACY_COMPAT_LEN(7, 6, 6, p);
 
   ::decode(ino, p);
   ::decode(rdev, p);
@@ -296,6 +297,8 @@ void inode_t::decode(bufferlist::iterator &p)
   else
     memset(&dir_layout, 0, sizeof(dir_layout));
   ::decode(layout, p);
+  if (struct_v >= 7)
+    ::decode(old_layouts, p);
   ::decode(size, p);
   ::decode(truncate_seq, p);
   ::decode(truncate_size, p);
@@ -347,6 +350,13 @@ void inode_t::dump(Formatter *f) const
 
   f->open_object_section("layout");
   ::dump(layout, f);
+  f->close_section();
+
+  f->open_array_section("old_layouts");
+  vector<ceph_file_layout>::const_iterator i = old_layouts.begin();
+  while(i != old_layouts.end()) {
+    ::dump(*i, f);
+  }
   f->close_section();
 
   f->dump_unsigned("size", size);
