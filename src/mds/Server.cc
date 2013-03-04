@@ -2597,8 +2597,6 @@ void Server::handle_client_open(MDRequest *mdr)
   reply_request(mdr, 0, cur, dn);
 }
 
-
-
 class C_MDS_openc_finish : public Context {
   MDS *mds;
   MDRequest *mdr;
@@ -2628,6 +2626,9 @@ public:
     MClientReply *reply = new MClientReply(mdr->client_request, 0);
     reply->set_extra_bl(mdr->reply_extra_bl);
     mds->server->reply_request(mdr, reply);
+
+    mdr->ls->queue_backtrace_update(newi, newi->inode.layout.fl_pg_pool);
+    assert(g_conf->mds_kill_openc_at != 1);
   }
 };
 
@@ -2740,7 +2741,7 @@ void Server::handle_client_openc(MDRequest *mdr)
   CInode *in = prepare_new_inode(mdr, dn->get_dir(), inodeno_t(req->head.ino),
 				 req->head.args.open.mode | S_IFREG, &layout);
   assert(in);
-  
+
   // it's a file.
   dn->push_projected_linkage(in);
 
@@ -3028,6 +3029,8 @@ public:
   void finish(int r) {
     assert(r == 0);
 
+    int64_t old_pool = in->inode.layout.fl_pg_pool;
+
     // apply
     in->pop_and_dirty_projected_inode(mdr->ls);
     mdr->apply();
@@ -3044,6 +3047,16 @@ public:
 
     if (changed_ranges)
       mds->locker->share_inode_max_size(in);
+
+    // if pool changed, queue a new backtrace and set forward pointer on old
+    if (old_pool != in->inode.layout.fl_pg_pool) {
+      mdr->ls->remove_pending_backtraces(in->ino(), in->inode.layout.fl_pg_pool);
+      mdr->ls->queue_backtrace_update(in, in->inode.layout.fl_pg_pool);
+
+      // set forwarding pointer on old backtrace
+      mdr->ls->remove_pending_backtraces(in->ino(), old_pool);
+      mdr->ls->queue_backtrace_update(in, old_pool, in->inode.layout.fl_pg_pool);
+    }
   }
 };
 
@@ -3376,6 +3389,8 @@ void Server::handle_client_setlayout(MDRequest *mdr)
 
   // validate layout
   ceph_file_layout layout = cur->get_projected_inode()->layout;
+  // save existing layout for later
+  ceph_file_layout old_layout = layout;
 
   if (req->head.args.setlayout.layout.fl_object_size > 0)
     layout.fl_object_size = req->head.args.setlayout.layout.fl_object_size;
@@ -3414,6 +3429,7 @@ void Server::handle_client_setlayout(MDRequest *mdr)
   // project update
   inode_t *pi = cur->project_inode();
   pi->layout = layout;
+  pi->add_old_layout(old_layout);
   pi->version = cur->pre_dirty();
   pi->ctime = ceph_clock_now(g_ceph_context);
   
@@ -3422,6 +3438,7 @@ void Server::handle_client_setlayout(MDRequest *mdr)
   EUpdate *le = new EUpdate(mdlog, "setlayout");
   mdlog->start_entry(le);
   le->metablob.add_client_req(req->get_reqid(), req->get_oldest_client_tid());
+  le->metablob.add_old_pool(cur->inode.layout.fl_pg_pool);
   mdcache->predirty_journal_parents(mdr, &le->metablob, cur, 0, PREDIRTY_PRIMARY, false);
   mdcache->journal_dirty_inode(mdr, &le->metablob, cur);
   
@@ -3616,6 +3633,8 @@ void Server::handle_set_vxattr(MDRequest *mdr, CInode *cur,
 	return;
       }
       ceph_file_layout layout = cur->get_projected_inode()->layout;
+      // save current layout for storing with old_layouts
+      ceph_file_layout old_layout = layout;
       rest = name.substr(name.find("layout"));
       int r = parse_layout_vxattr(rest, value, &layout);
       if (r < 0) {
@@ -3640,6 +3659,7 @@ void Server::handle_set_vxattr(MDRequest *mdr, CInode *cur,
 
       pi = cur->project_inode();
       pi->layout = layout;
+      pi->add_old_layout(old_layout);
       pi->ctime = ceph_clock_now(g_ceph_context);
     }
 
@@ -3650,6 +3670,8 @@ void Server::handle_set_vxattr(MDRequest *mdr, CInode *cur,
     EUpdate *le = new EUpdate(mdlog, "set vxattr layout");
     mdlog->start_entry(le);
     le->metablob.add_client_req(req->get_reqid(), req->get_oldest_client_tid());
+    if (cur->is_file())
+      le->metablob.add_old_pool(cur->inode.layout.fl_pg_pool);
     mdcache->predirty_journal_parents(mdr, &le->metablob, cur, 0, PREDIRTY_PRIMARY, false);
     mdcache->journal_dirty_inode(mdr, &le->metablob, cur);
 
@@ -3910,6 +3932,15 @@ public:
 
     // hit pop
     mds->balancer->hit_inode(mdr->now, newi, META_POP_IWR);
+
+    // store the backtrace on the 'parent' xattr
+    if (newi->inode.is_dir()) {
+      // if its a dir, put it in the metadata pool
+      mdr->ls->queue_backtrace_update(newi, mds->mdsmap->get_metadata_pool());
+    } else {
+      // if its a file, put it in the data pool for that file
+      mdr->ls->queue_backtrace_update(newi, newi->inode.layout.fl_pg_pool);
+    }
 
     // reply
     MClientReply *reply = new MClientReply(mdr->client_request, 0);
@@ -5825,7 +5856,20 @@ void Server::_rename_finish(MDRequest *mdr, CDentry *srcdn, CDentry *destdn, CDe
     mds->balancer->hit_inode(mdr->now, destdnl->get_inode(), META_POP_IWR);
 
   // did we import srci?  if so, explicitly ack that import that, before we unlock and reply.
-  
+
+  // backtrace
+  if (destdnl->inode->is_dir()) {
+    // replace previous backtrace on this inode with myself
+    mdr->ls->remove_pending_backtraces(destdnl->inode->ino(), mds->mdsmap->get_metadata_pool());
+    // queue an updated backtrace
+    mdr->ls->queue_backtrace_update(destdnl->inode, mds->mdsmap->get_metadata_pool());
+
+  } else {
+    // remove all pending backtraces going to the same pool
+    mdr->ls->remove_pending_backtraces(destdnl->inode->ino(), destdnl->inode->inode.layout.fl_pg_pool);
+    // queue an updated backtrace
+    mdr->ls->queue_backtrace_update(destdnl->inode, destdnl->inode->inode.layout.fl_pg_pool);
+  }
 
   // reply
   MClientReply *reply = new MClientReply(mdr->client_request, 0);
@@ -6198,6 +6242,9 @@ void Server::_rename_prepare(MDRequest *mdr,
     mdcache->project_subtree_rename(oldin, destdn->get_dir(), straydn->get_dir());
   if (srci->is_dir())
     mdcache->project_subtree_rename(srci, srcdn->get_dir(), destdn->get_dir());
+
+  // always update the backtrace
+  metablob->update_backtrace();
 }
 
 
