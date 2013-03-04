@@ -131,16 +131,11 @@ public:
   uint32_t mask_bits;
   uint32_t match;
   string last_key_checked;
-  enum {
-    NOTSPLITTING,
-    SPLITTING
-  } split_state;
   SnapMapper(
     MapCacher::StoreDriver<std::string, bufferlist> *driver,
     uint32_t match,
     uint32_t bits)
-    : backend(driver), mask_bits(bits), match(match),
-      split_state(NOTSPLITTING) {
+    : backend(driver), mask_bits(bits), match(match) {
     update_bits(mask_bits);
   }
 
